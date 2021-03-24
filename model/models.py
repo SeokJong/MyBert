@@ -1,4 +1,3 @@
-import logging
 import os
 
 import tensorflow as tf
@@ -151,7 +150,7 @@ class BertPretrainModel(BertPretraind):
         total_loss = loss_mlm[0] + loss_nsp[0]
         if not dummy:
             self.add_loss(total_loss)
-            return total_loss
+            return output
 
 
 class SentimentAnalysis(Layer):
@@ -175,12 +174,14 @@ class SentimentAnalysis(Layer):
         first_token_tensor = tf.squeeze(inputs[:, 0:1, :], axis=1)
         pooled_output = self.pooled(first_token_tensor)
         logits = self.prediction(pooled_output)
+        predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+        accuracy = tf.keras.metrics.binary_accuracy(labels, predictions)
         log_probs = tf.nn.log_softmax(logits, axis=-1)
         labels = tf.reshape(labels, [-1])
         one_hot_labels = tf.one_hot(labels, depth=2, dtype=tf.float32)
         per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
         loss = tf.reduce_mean(per_example_loss)
-        return (loss, per_example_loss, log_probs)
+        return (loss, per_example_loss, log_probs, accuracy, logits)
 
 
 class BertSentimentModel(BertPretraind):
@@ -216,5 +217,6 @@ class BertSentimentModel(BertPretraind):
         total_loss = loss_sent[0]
         if not dummy:
             self.add_loss(total_loss)
-            return loss_sent
+            self.add_metric(loss_sent[3], name="acc")
+            return loss_sent[4]
 

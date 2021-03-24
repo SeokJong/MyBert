@@ -114,3 +114,38 @@ def build_interleaved_tfrecord_dataset(
                           num_parallel_calls=tf.data.experimental.AUTOTUNE)
     dataset = dataset.batch(batch_size, drop_remainder=True)
     return dataset
+
+
+def build_interleaved_tfrecord_dataset_imdb(
+        tfrecord_paths: list,
+        max_sequence_length: int,
+        max_predictions_per_seq: int,
+        batch_size: int,
+        num_cpu_threads: int
+):
+    dataset = tf.data.Dataset.from_tensor_slices(tf.constant(tfrecord_paths))
+    dataset = dataset.shuffle(buffer_size=len(tfrecord_paths))
+    dataset = dataset.repeat()
+
+    cycle_length = min(num_cpu_threads, len(tfrecord_paths))
+
+    dataset = dataset.interleave(
+        tf.data.TFRecordDataset,
+        cycle_length=cycle_length,
+        block_length=num_cpu_threads * 4,
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+    dataset = dataset.shuffle(buffer_size=10)
+
+    name_to_features = {
+        "input_ids":
+            tf.io.FixedLenFeature([max_sequence_length], tf.int64),
+        "input_mask":
+            tf.io.FixedLenFeature([max_sequence_length], tf.int64),
+        "sentiment_labels":
+            tf.io.FixedLenFeature([1], tf.int64),
+    }
+    dataset = dataset.map(lambda record: _decode_record(record, name_to_features),
+                          num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    dataset = dataset.batch(batch_size, drop_remainder=True)
+    return dataset
