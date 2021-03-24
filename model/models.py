@@ -1,6 +1,10 @@
+import logging
+import os
+
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Layer, Dense
+import numpy as np
 
 from . import bert, utils
 
@@ -75,7 +79,44 @@ class NextSentencePrediction(Layer):
         return (loss, per_example_loss, log_probs)
 
 
-class BertPretrainModel(Model):
+
+class BertPretraind(Model):
+    def dummy_input(self, model_opt):
+        self.batch = model_opt["BATCH_SIZE"]
+        self. max_len = model_opt["MAX_SEQ_LENGTH"]
+        self.max_pred = model_opt["MAX_PREDICTIONS"]
+        self.dummy = {
+            "input_ids": np.zeros([self.batch, self.max_len], dtype=np.int32),
+            "input_mask": np.zeros([self.batch, self.max_len], dtype=np.int32),
+            "masked_lm_ids": np.zeros([self.batch, self.max_pred], dtype=np.int32),
+            "masked_lm_positions": np.zeros([self.batch, self.max_pred], dtype=np.int32),
+            "masked_lm_weights": np.zeros([self.batch, self.max_pred], dtype=np.float32),
+            "next_sentence_labels": np.zeros([self.batch, 1], dtype=np.int32),
+            "segment_ids": np.zeros([self.batch, self.max_len], dtype=np.int32)
+        }
+
+    def build_dummy(self, model_opt, **kwargs):
+        self.dummy_input(model_opt)
+        self.fit(self.dummy)
+
+    def call(self, inputs, training=False, **kwargs):
+        pass
+
+    def save_pretrained(self, save_directory, model_opt, version=1):
+        os.makedirs(save_directory, exist_ok=True)
+        filename = f"L{model_opt['HIDDEN_LAYER_NUMS']}_H{model_opt['HIDDEN_SIZE']}_{version}.h5"
+        output_model_file = os.path.join(save_directory, filename)
+        self.save_weights(output_model_file)
+
+    def load_pretrained(self, model_opt, filepath=None, version=1):
+        self.build_dummy(model_opt)
+        if not filepath:
+            filepath = f"L{model_opt['HIDDEN_LAYER_NUMS']}_H{model_opt['HIDDEN_SIZE']}_{version}.h5"
+            filepath = os.path.join(model_opt["MODEL_DIR"], filepath)
+        self.load_weights(filepath, by_name=True)
+
+
+class BertPretrainModel(BertPretraind):
     def __init__(self, model_opt: dict, mid_activation, **kwargs):
         super(BertPretrainModel, self).__init__(**kwargs)
         self.hidden_size = model_opt["HIDDEN_SIZE"]
@@ -85,7 +126,7 @@ class BertPretrainModel(Model):
         self.nsp = NextSentencePrediction(model_opt, name="nsp", **kwargs)
 
 
-    def call(self, inputs, training=None, **kwargs):
+    def call(self, inputs, training=None, dummy=False, **kwargs):
         input_shape = inputs["input_mask"].shape
         extended_attention_mask = tf.reshape(inputs["input_mask"], (input_shape[0], 1, 1, input_shape[1]))
         extended_attention_mask = tf.cast(tf.equal(extended_attention_mask, 0), tf.float32)
@@ -108,37 +149,72 @@ class BertPretrainModel(Model):
             labels=inputs["next_sentence_labels"]
         )
         total_loss = loss_mlm[0] + loss_nsp[0]
-        self.add_loss(total_loss)
-        return total_loss
+        if not dummy:
+            self.add_loss(total_loss)
+            return total_loss
 
-    def save_pretrained(self, save_directory, saved_model=False, version=1):
-        """
-        Save a model and its configuration file to a directory, so that it can be re-loaded using the
-        :func:`~transformers.TFPreTrainedModel.from_pretrained` class method.
-        Arguments:
-            save_directory (:obj:`str`):
-                Directory to which to save. Will be created if it doesn't exist.
-            saved_model (:obj:`bool`, `optional`, defaults to :obj:`False`):
-                If the model has to be saved in saved model format as well or not.
-            version (:obj:`int`, `optional`, defaults to 1):
-                The version of the saved model. A saved model needs to be versioned in order to be properly loaded by
-                TensorFlow Serving as detailed in the official documentation
-                https://www.tensorflow.org/tfx/serving/serving_basic
-        """
-        if os.path.isfile(save_directory):
-            logger.error("Provided path ({}) should be a directory, not a file".format(save_directory))
-            return
-        os.makedirs(save_directory, exist_ok=True)
 
-        if saved_model:
-            saved_model_dir = os.path.join(save_directory, "saved_model", str(version))
-            self.save(saved_model_dir, include_optimizer=False, signatures=self.serving)
-            logger.info(f"Saved model created in {saved_model_dir}")
+class SentimentAnalysis(Layer):
+    def __init__(self, model_opt: dict, **kwargs):
+        super(SentimentAnalysis, self).__init__(**kwargs)
+        self.initializer = tf.keras.initializers.TruncatedNormal(stddev=model_opt["INIT_RANGE"])
+        self.hidden_size = model_opt["HIDDEN_SIZE"]
+        self.pooled = Dense(
+            self.hidden_size,
+            activation=tf.tanh,
+            kernel_initializer=self.initializer,
+            name="pooling_layer"
+        )
+        self.prediction = Dense(
+            units=2,
+            kernel_initializer=self.initializer,
+            name="sentiment"
+        )
 
-        # Save configuration file
-        self.config.save_pretrained(save_directory)
+    def call(self, inputs, labels, **kwargs):
+        first_token_tensor = tf.squeeze(inputs[:, 0:1, :], axis=1)
+        pooled_output = self.pooled(first_token_tensor)
+        logits = self.prediction(pooled_output)
+        log_probs = tf.nn.log_softmax(logits, axis=-1)
+        labels = tf.reshape(labels, [-1])
+        one_hot_labels = tf.one_hot(labels, depth=2, dtype=tf.float32)
+        per_example_loss = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
+        loss = tf.reduce_mean(per_example_loss)
+        return (loss, per_example_loss, log_probs)
 
-        # If we save using the predefined names, we can load using `from_pretrained`
-        output_model_file = os.path.join(save_directory, TF2_WEIGHTS_NAME)
-        self.save_weights(output_model_file)
-        logger.info("Model weights saved in {}".format(output_model_file))
+
+class BertSentimentModel(BertPretraind):
+    def __init__(self, model_opt: dict, mid_activation, **kwargs):
+        super(BertSentimentModel, self).__init__(**kwargs)
+        self.hidden_size = model_opt["HIDDEN_SIZE"]
+        self.initializer = tf.keras.initializers.TruncatedNormal(stddev=model_opt["INIT_RANGE"])
+        self.bert = bert.Bert(model_opt, mid_activation, name="bert_main", **kwargs)
+        self.sentiment = SentimentAnalysis(model_opt, name="sentiment", **kwargs)
+
+    def dummy_input(self, model_opt):
+        super(BertSentimentModel, self).dummy_input(model_opt)
+        self.dummy["sentiment_labels"] = np.zeros([self.batch, 1], dtype=np.int32)
+
+
+    def call(self, inputs, training=None, dummy=False, **kwargs):
+        input_shape = inputs["input_mask"].shape
+        extended_attention_mask = tf.reshape(inputs["input_mask"], (input_shape[0], 1, 1, input_shape[1]))
+        extended_attention_mask = tf.cast(tf.equal(extended_attention_mask, 0), tf.float32)
+        extended_attention_mask = tf.multiply(extended_attention_mask, tf.constant(-10000.0, dtype=tf.float32))
+        if "segment_ids" not in inputs:
+            inputs["segment_ids"] = None
+        output = self.bert(
+            input_ids=inputs["input_ids"],
+            attention_mask=extended_attention_mask,
+            token_type_ids=inputs["segment_ids"],
+            training=training
+        )
+        loss_sent = self.sentiment(
+            inputs=output,
+            labels=inputs["sentiment_labels"]
+        )
+        total_loss = loss_sent[0]
+        if not dummy:
+            self.add_loss(total_loss)
+            return loss_sent
+

@@ -47,6 +47,9 @@ class EmbeddingLayer(Layer):
         position_embeds = tf.gather(params=self.position_embeddings, indices=position_ids)
         position_embeds = tf.tile(input=position_embeds, multiples=(input_shape[0], 1, 1))
 
+        if not token_type_ids:
+            tf.zeros(input_ids.shape)
+
         token_type_embeds = tf.gather(params=self.token_type_embeddings, indices=token_type_ids)
 
         final_embeddings = self.embeddings_sum(inputs=[inputs_embeds, position_embeds, token_type_embeds])

@@ -260,3 +260,4 @@ shards
 logs
 dataset.txt
 proc_dataset.txt
+aclImdb*

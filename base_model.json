@@ -16,7 +16,9 @@
     "NORM_EPS": 0.001,
     "DROPOUT_RATE": 0.1,
     "INIT_RANGE": 0.02,
-    "HIDDEN_ACTIVATION": "gelu",
+    "ATT_HEAD": 2,
+    "ATT_HEAD_SIZE": 0.02,
     "HIDDEN_LAYER_NUMS": 2,
-    "ATT_HEAD": 2
+    "HIDDEN_ACTIVATION": "gelu",
+    "MODEL_DIR": "./pretrain_model"
 }

@@ -38,7 +38,7 @@ class Bert(Layer):
             self,
             input_ids: tf.Tensor,
             attention_mask: tf.Tensor,
-            token_type_ids: tf.Tensor,
+            token_type_ids: tf.Tensor = None,
             training: bool = False,
     ):
         embedding_output = self.embedding.call(
