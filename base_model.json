@@ -11,14 +11,13 @@
     "BATCH_SIZE": 32,
     "VOCAB_SIZE": 32000,
     "VOCAB_TOKEN": 2,
-    "HIDDEN_SIZE": 128,
+    "HIDDEN_SIZE": 512,
     "MAX_POS_EMBED": 128,
     "NORM_EPS": 0.001,
     "DROPOUT_RATE": 0.1,
     "INIT_RANGE": 0.02,
-    "ATT_HEAD": 2,
-    "ATT_HEAD_SIZE": 0.02,
-    "HIDDEN_LAYER_NUMS": 2,
+    "ATT_HEAD": 8,
+    "HIDDEN_LAYER_NUMS": 4,
     "HIDDEN_ACTIVATION": "gelu",
     "MODEL_DIR": "./pretrain_model"
 }
