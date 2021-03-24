@@ -8,7 +8,7 @@ from . import transformer, embedding
 class BertEncoder(Layer):
     def __init__(self, model_opt, mid_activation, **kwargs):
         self.hidden_layer = model_opt["HIDDEN_LAYER_NUMS"]
-        self.encoders = [transformer.TransformerEncoder(model_opt, mid_activation, name=f"Encoder_{i}")
+        self.encoders = [transformer.TransformerEncoder(model_opt, mid_activation, layer_num=i, name=f"Encoder_{i}")
                          for i in range(self.hidden_layer)]
         super(BertEncoder, self).__init__(**kwargs)
 
@@ -32,7 +32,7 @@ class Bert(Layer):
     def __init__(self, model_opt: dict, mid_activation, **kwargs):
         super(Bert, self).__init__(**kwargs)
         self.embedding = embedding.EmbeddingLayer(model_opt, name="Embedding")
-        self.encoder = BertEncoder(model_opt, mid_activation, **kwargs)
+        self.encoder = BertEncoder(model_opt, mid_activation, name="BertEncoder", **kwargs)
 
     def call(
             self,
