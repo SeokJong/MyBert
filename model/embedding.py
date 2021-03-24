@@ -49,7 +49,6 @@ class EmbeddingLayer(Layer):
 
         if token_type_ids == None:
             token_type_ids = tf.zeros(input_ids.shape, dtype=tf.int32)
-        print(token_type_ids)
 
         token_type_embeds = tf.gather(params=self.token_type_embeddings, indices=token_type_ids)
 

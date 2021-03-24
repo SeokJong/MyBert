@@ -1,7 +1,7 @@
 {
-    "HIDDEN_LAYER_NUMS": 12,
-    "HIDDEN_SIZE": 768,
-    "ATT_HEAD": 12,
+    "HIDDEN_LAYER_NUMS": 4,
+    "HIDDEN_SIZE": 512,
+    "ATT_HEAD": 8,
     "MAX_SEQ_LENGTH": 128,
     "MASKED_LM_PROB": 0.15,
     "MAX_PREDICTIONS": 20,
