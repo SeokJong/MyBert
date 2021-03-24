@@ -2,7 +2,8 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Layer, Dense
 
-from model import bert, utils
+import bert
+import utils
 
 
 class MaskedLanguageModel(Layer):

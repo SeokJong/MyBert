@@ -1,7 +1,9 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense
 from tensorflow.keras.models import Model
-from model import transformer, embedding
+
+import transformer
+import embedding
 
 
 class BertEncoder(Layer):
