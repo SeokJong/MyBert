@@ -31,8 +31,8 @@ class BertEncoder(Layer):
 class Bert(Layer):
     def __init__(self, model_opt: dict, mid_activation, **kwargs):
         super(Bert, self).__init__(**kwargs)
-        self.embedding = embedding.EmbeddingLayer(model_opt, name="Embedding")
-        self.encoder = BertEncoder(model_opt, mid_activation, name="BertEncoder", **kwargs)
+        self.embedding = embedding.EmbeddingLayer(model_opt)
+        self.encoder = BertEncoder(model_opt, mid_activation, **kwargs)
 
     def call(
             self,
