@@ -109,10 +109,10 @@ class Intermediate(Layer):
 class TransformerEncoder(Layer):
     def __init__(self, model_opt: dict, mid_activation, layer_num, **kwargs):
         self.config = model_opt
-        self.attention_layer = SelfAttention(model_opt, name=f"ATT{i}")
-        self.attrcln = ResConnLayerNorm(model_opt, name=f"RCLN{i}_0")
-        self.intermediate = Intermediate(model_opt, mid_activation, name=f"FFNN{i}")
-        self.interrcln = ResConnLayerNorm(model_opt, name=f"RCLN{i}_1")
+        self.attention_layer = SelfAttention(model_opt, name=f"ATT{layer_num}")
+        self.attrcln = ResConnLayerNorm(model_opt, name=f"RCLN{layer_num}_0")
+        self.intermediate = Intermediate(model_opt, mid_activation, name=f"FFNN{layer_num}")
+        self.interrcln = ResConnLayerNorm(model_opt, name=f"RCLN{layer_num}_1")
 
         super(TransformerEncoder, self).__init__(**kwargs)
 
